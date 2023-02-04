@@ -164,11 +164,11 @@ if __name__ == "__main__":
         )
 
     # Sort trials based on difficulty
-    combosDf = combosDf.sort_values(by=["diffScore"], ascending=False)
+    combosDf = combosDf.sort_values(by=["diffScore"], ascending=True)
     trialsDf = pd.DataFrame(
         columns=[
             "TrialN",
-            "Target1",
+            "Target",
             "Choice1",
             "Choice2",
             "CorrRes",
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         )
 
     # Sort trials back to easy to hardest
-    trialsDf = trialsDf.sort_values(by=["DiffScore"], ascending=True)
+    trialsDf = trialsDf.sort_values(by=["DiffScore"], ascending=False)
 
     # Add trialNumber column
     trialsDf["TrialN"] = np.arange(1, len(trialsDf) + 1)
