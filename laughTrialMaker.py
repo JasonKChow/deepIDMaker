@@ -213,7 +213,7 @@ if __name__ == "__main__":
         # Add this row to the trials df
         trialsDf = trialsDf.append(
             {
-                "Target1": row[1]["targetFile"],
+                "Target": row[1]["targetFile"],
                 "Choice1": row[1]["correctFile"]
                 if corrRes == 1
                 else row[1]["foilFile"],
