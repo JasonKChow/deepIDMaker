@@ -1,3 +1,5 @@
 .vscode
 stimuli/
 __pycache__/
+*.png
+*.json
