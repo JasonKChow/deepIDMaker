@@ -72,7 +72,7 @@ if __name__ == "__main__":
         fsFiles = [file for file in files if file[:2] == "FS"]
 
         # Get identities
-        fsIdentities = [name[2:-4] for name in files]
+        fsIdentities = [name[2:-4] for name in fsFiles]
         fsIdentities = [
             re.split(r"([a-zA-Z])", name)[0] for name in fsIdentities
         ]
