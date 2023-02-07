@@ -66,6 +66,7 @@ if __name__ == "__main__":
         fsReps = np.load("./fsReps.npy")
         fsIdentities = pickle.load(open("./fsIdentities.pkl", "rb"))
         fsSimMatrix = cosine_similarity(fsReps)
+        del fsReps
         np.save("./fsSimMatrix.npy", fsSimMatrix)
     else:
         fsFiles = [file for file in files if file[:2] == "FS"]
@@ -85,6 +86,7 @@ if __name__ == "__main__":
 
         # Save reps
         np.save("./fsReps.npy", fsReps)
+        del fsReps
 
         # Save identity list
         pickle.dump(fsIdentities, open("./fsIdentities.pkl", "wb"))
@@ -100,6 +102,7 @@ if __name__ == "__main__":
         lavanReps = np.load("./lavanReps.npy")
         lavanIdentities = pickle.load(open("./lavanIdentities.pkl", "rb"))
         lavanSimMatrix = cosine_similarity(lavanReps)
+        del lavanReps
         np.save("./lavanSimMatrix.npy", lavanSimMatrix)
     else:
         lavanFiles = [
@@ -117,6 +120,7 @@ if __name__ == "__main__":
 
         # Save reps
         np.save("./lavanReps.npy", lavanReps)
+        del lavanReps
 
         # Save identity list
         pickle.dump(lavanIdentities, open("./lavanIdentities.pkl", "wb"))
@@ -132,6 +136,7 @@ if __name__ == "__main__":
         mahnobReps = np.load("./mahnobReps.npy")
         mahnobIdentities = pickle.load(open("./mahnobIdentities.pkl", "rb"))
         mahnobSimMatrix = cosine_similarity(mahnobReps)
+        del mahnobReps
         np.save("./mahnobSimMatrix.npy", mahnobSimMatrix)
     else:
         mahnobFiles = [file for file in files if file[:3] == "sbj"]
@@ -150,13 +155,13 @@ if __name__ == "__main__":
 
         # Save reps
         np.save("./mahnobReps.npy", mahnobReps)
+        del mahnobReps
 
         # Save identity list
         pickle.dump(mahnobIdentities, open("./mahnobIdentities.pkl", "wb"))
 
         # save similarity matrix
         np.save("./mahnobSimMatrix.npy", mahnobSimMatrix)
-
 
     # # Get identities and counts for each identity
     # identities = df["identity"].unique()
