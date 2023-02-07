@@ -78,6 +78,11 @@ if __name__ == "__main__":
         ]
         fsIdentities = ["FS" + name for name in fsIdentities]
 
+        # Combine files and identities
+        fsIdentities = pd.DataFrame(
+            {"file": fsFiles, "identity": fsIdentities}
+        )
+
         # Get FS reps
         fsReps = get_reps(model, fsFiles, stimDir)
 
@@ -111,6 +116,11 @@ if __name__ == "__main__":
 
         # Get identities
         lavanIdentities = [name[:-4] for name in lavanFiles]
+
+        # Combine files and identities
+        lavanIdentities = pd.DataFrame(
+            {"file": lavanFiles, "identity": lavanIdentities}
+        )
 
         # Get Lavan reps
         lavanReps = get_reps(model, lavanFiles, stimDir)
@@ -147,6 +157,11 @@ if __name__ == "__main__":
             for file in mahnobFiles
         ]
 
+        # Combine files and identities
+        mahnobIdentities = pd.DataFrame(
+            {"file": mahnobFiles, "identity": mahnobIdentities}
+        )
+
         # Get Mahnob reps
         mahnobReps = get_reps(model, mahnobFiles, stimDir)
 
@@ -163,11 +178,6 @@ if __name__ == "__main__":
         # save similarity matrix
         np.save("./mahnobSimMatrix.npy", mahnobSimMatrix)
 
-    # # Get identities and counts for each identity
-    # identities = df["identity"].unique()
-    # identityCounts = df["identity"].value_counts()
-    # identityCounts = identityCounts.sort_values(ascending=False)
-
     # Loop through identities from high counts to low
     trialDf = pd.DataFrame(
         columns=[
@@ -179,6 +189,77 @@ if __name__ == "__main__":
             "DiffScore",
         ]
     )
+
+    # Make fs trials
+    # Get identity counts of fs identities
+    fsIdentityCounts = pd.Series(
+        fsIdentities, index=fsIdentities
+    ).value_counts()
+
+    usedIndices = []
+    # Loop until no identities have more than 1 file left
+    while len(fsIdentityCounts[fsIdentityCounts > 1]) > 0:
+        # Pick the identity with the most files
+        identity = fsIdentityCounts.index[0]
+
+        # Get indices of all files for this identity
+        identityIndices = [
+            i for i, x in enumerate(fsIdentities) if x == identity
+        ]
+
+        # Pick two files at random
+        targetIndex, corrIndex = np.random.choice(identityIndices, 2)
+
+        # Get the similarity between target and corr
+        targetCorrSim = fsSimMatrix[targetIndex, corrIndex]
+
+        # Select the file that is most dissimilar to the target
+        foilIndices = np.argsort(fsSimMatrix[targetIndex, :])[::-1]
+
+        for foil in foilIndices:
+            if foil in identityIndices:
+                continue
+            else:
+                foilIndex = foil
+                break
+
+        # Pick correct answer
+        corrRes = np.random.choice([1, 2])
+        # Fill in the trial dataframe
+        trialDf = trialDf.append(
+            {
+                "TrialN": len(trialDf) + 1,
+                "Target": fsFiles[targetIndex],
+                "Choice1": fsFiles[corrIndex]
+                if corrRes == 1
+                else fsFiles[foilIndex],
+                "Choice2": fsFiles[foilIndex]
+                if corrRes == 1
+                else fsFiles[corrIndex],
+                "CorrRes": 1,
+                "DiffScore": targetCorrSim
+                - fsSimMatrix[targetIndex, foilIndex],
+            },
+            ignore_index=True,
+        )
+
+        # Remove the used files from identities and similarity matrix
+        fsIdentities = [
+            x
+            for i, x in enumerate(fsIdentities)
+            if i not in [targetIndex, corrIndex, foilIndex]
+        ]
+        fsSimMatrix = np.delete(
+            np.delete(fsSimMatrix, [targetIndex, corrIndex, foilIndex], 0),
+            [targetIndex, corrIndex, foilIndex],
+            1,
+        )
+
+        # Recalculate identity counts
+        fsIdentityCounts = pd.Series(
+            fsIdentities, index=fsIdentities
+        ).value_counts()
+        print("stop")
 
     # # Keep looping until all identities have less than 1 files
     # usedFiles = []
