@@ -21,33 +21,84 @@ def get_reps(model, files, stimDir):
     return reps
 
 
-def get_FS_identities(files):
-    # Strip FS
-    identities = [name[2:-4] for name in files]
+def create_trials(identities, simMatrix):
+    # Loop through identities from high counts to low
+    trialDf = pd.DataFrame(
+        columns=[
+            "Target",
+            "Choice1",
+            "Choice2",
+            "CorrRes",
+            "DiffScore",
+        ]
+    )
 
-    # Split on the letter
-    identities = [re.split(r"([a-zA-Z])", name)[0] for name in identities]
+    # Make fs trials
+    # Get identity counts of fs identities
+    identityCounts = identities["identity"].value_counts()
 
-    # Add FS back to everyone
-    identities = ["FS" + name for name in identities]
+    usedIndices = []
+    # Loop until no identities have more than 1 file left
+    while len(identityCounts[identityCounts > 1]) > 0:
+        # Pick the identity with the most files
+        identity = identityCounts.index[0]
 
-    return identities
+        # Get indices of all files for this identity
+        identityIndices = identities[identities["identity"] == identity].index
 
+        # Pick two files at random
+        targetIndex, corrIndex = np.random.choice(identityIndices, 2)
 
-def create_sim_matrix(df, group):
-    # Create similarity matrix
-    simMatrix = np.empty((len(df), len(df)))
+        # Get the similarity between target and corr
+        targetCorrSim = simMatrix[targetIndex, corrIndex]
 
-    for i in range(len(df)):
-        for j in range(len(df)):
-            simMatrix[i, j] = np.sum((df["rep"][i] - df["rep"][j]) ** 2)
+        # Select the file that is most dissimilar to the target
+        foilIndices = np.argsort(simMatrix[targetIndex, :])[::-1]
 
-    return simMatrix
+        for foil in foilIndices:
+            if foil in identityIndices:
+                continue
+            else:
+                foilIndex = foil
+                break
 
+        # Pick correct answer
+        corrRes = np.random.choice([1, 2])
+        # Fill in the trial dataframe
+        trialDf = pd.concat(
+            [
+                trialDf,
+                pd.DataFrame(
+                    {
+                        "Target": [identities["file"][targetIndex]],
+                        "Choice1": [identities["file"][corrIndex]]
+                        if corrRes == 1
+                        else [identities["file"][foilIndex]],
+                        "Choice2": [identities["file"][foilIndex]]
+                        if corrRes == 1
+                        else [identities["file"][corrIndex]],
+                        "CorrRes": [corrRes],
+                        "DiffScore": [
+                            targetCorrSim - simMatrix[targetIndex, foilIndex]
+                        ],
+                    }
+                ),
+            ]
+        )
 
-def plot_sim_matrix(simMatrix, outpath):
-    plt.imshow(simMatrix)
-    plt.savefig(outpath)
+        # Remove the used files from identities and similarity matrix
+        identities = identities.drop([targetIndex, corrIndex, foilIndex])
+        identities = identities.reset_index(drop=True)
+        simMatrix = np.delete(
+            np.delete(simMatrix, [targetIndex, corrIndex, foilIndex], 0),
+            [targetIndex, corrIndex, foilIndex],
+            1,
+        )
+
+        # Recalculate identity counts
+        identityCounts = identities["identity"].value_counts()
+
+    return trialDf
 
 
 if __name__ == "__main__":
@@ -115,7 +166,9 @@ if __name__ == "__main__":
         ]
 
         # Get identities
-        lavanIdentities = [name[:-4] for name in lavanFiles]
+        lavanIdentities = [
+            name.split("_")[-1].split(".")[0] for name in lavanFiles
+        ]
 
         # Combine files and identities
         lavanIdentities = pd.DataFrame(
@@ -178,170 +231,20 @@ if __name__ == "__main__":
         # save similarity matrix
         np.save("./mahnobSimMatrix.npy", mahnobSimMatrix)
 
-    # Loop through identities from high counts to low
-    trialDf = pd.DataFrame(
-        columns=[
-            "TrialN",
-            "Target",
-            "Choice1",
-            "Choice2",
-            "CorrRes",
-            "DiffScore",
-        ]
-    )
+    # Make trials
+    trialDf = create_trials(fsIdentities, fsSimMatrix)
+    trialDf["source"] = "joanne"
 
-    # Make fs trials
-    # Get identity counts of fs identities
-    fsIdentityCounts = pd.Series(
-        fsIdentities, index=fsIdentities
-    ).value_counts()
+    tmp = create_trials(lavanIdentities, lavanSimMatrix)
+    tmp["source"] = "lavan"
+    trialDf = pd.concat([trialDf, tmp])
 
-    usedIndices = []
-    # Loop until no identities have more than 1 file left
-    while len(fsIdentityCounts[fsIdentityCounts > 1]) > 0:
-        # Pick the identity with the most files
-        identity = fsIdentityCounts.index[0]
+    tmp = create_trials(mahnobIdentities, mahnobSimMatrix)
+    tmp["source"] = "mahnob"
+    trialDf = pd.concat([trialDf, tmp])
 
-        # Get indices of all files for this identity
-        identityIndices = [
-            i for i, x in enumerate(fsIdentities) if x == identity
-        ]
+    # Sort trials based on difficulty
+    trialDf = trialDf.sort_values("DiffScore", ascending=False)
 
-        # Pick two files at random
-        targetIndex, corrIndex = np.random.choice(identityIndices, 2)
-
-        # Get the similarity between target and corr
-        targetCorrSim = fsSimMatrix[targetIndex, corrIndex]
-
-        # Select the file that is most dissimilar to the target
-        foilIndices = np.argsort(fsSimMatrix[targetIndex, :])[::-1]
-
-        for foil in foilIndices:
-            if foil in identityIndices:
-                continue
-            else:
-                foilIndex = foil
-                break
-
-        # Pick correct answer
-        corrRes = np.random.choice([1, 2])
-        # Fill in the trial dataframe
-        trialDf = trialDf.append(
-            {
-                "TrialN": len(trialDf) + 1,
-                "Target": fsFiles[targetIndex],
-                "Choice1": fsFiles[corrIndex]
-                if corrRes == 1
-                else fsFiles[foilIndex],
-                "Choice2": fsFiles[foilIndex]
-                if corrRes == 1
-                else fsFiles[corrIndex],
-                "CorrRes": 1,
-                "DiffScore": targetCorrSim
-                - fsSimMatrix[targetIndex, foilIndex],
-            },
-            ignore_index=True,
-        )
-
-        # Remove the used files from identities and similarity matrix
-        fsIdentities = [
-            x
-            for i, x in enumerate(fsIdentities)
-            if i not in [targetIndex, corrIndex, foilIndex]
-        ]
-        fsSimMatrix = np.delete(
-            np.delete(fsSimMatrix, [targetIndex, corrIndex, foilIndex], 0),
-            [targetIndex, corrIndex, foilIndex],
-            1,
-        )
-
-        # Recalculate identity counts
-        fsIdentityCounts = pd.Series(
-            fsIdentities, index=fsIdentities
-        ).value_counts()
-        print("stop")
-
-    # # Keep looping until all identities have less than 1 files
-    # usedFiles = []
-    # repeatLimit = 1
-    # negFirst = True
-    # while len(identityCounts[identityCounts > 1]) > 0:
-    #     # Pick the identity with the most files
-    #     identity = identityCounts.index[0]
-
-    #     # Get all files for this identity
-    #     identityFiles = df[df["identity"] == identity]["file"].unique()
-
-    #     # Check if this identity less than 2 files
-    #     if len(identityFiles) < 2:
-    #         continue
-
-    #     # Pick two files at random
-    #     targetFile = np.random.choice(identityFiles)
-    #     nonTargetFile = np.random.choice(
-    #         identityFiles[identityFiles != targetFile]
-    #     )
-
-    #     # Get their similarity scores
-    #     targetRep = df[df["file"] == targetFile]["rep"].values[0]
-    #     nonTargetRep = df[df["file"] == nonTargetFile]["rep"].values[0]
-    #     corrSim = np.sum((targetRep - nonTargetRep) ** 2)
-
-    #     # Get all other files that are not that identity
-    #     foilFiles = df[df["identity"] != identity]["file"].unique()
-
-    #     # Calculate similarity between the target and foils
-    #     tmpDf = pd.DataFrame(columns=["file", "sim"])
-    #     for foilFile in foilFiles:
-    #         foilRep = df[df["file"] == foilFile]["rep"].values[0]
-    #         foilSim = np.sum((targetRep - foilRep) ** 2)
-    #         tmpDf = tmpDf.append(
-    #             {"file": foilFile, "sim": foilSim}, ignore_index=True
-    #         )
-
-    #     # Pick the most (dis)similar file
-    #     tmpDf = tmpDf.sort_values(by=["sim"], ascending=not negFirst)
-    #     foilFile = tmpDf.iloc[-1]["file"]
-
-    #     # Add files to used files
-    #     usedFiles.append(targetFile)
-    #     usedFiles.append(nonTargetFile)
-    #     usedFiles.append(foilFile)
-
-    #     # Remove used files from df if this is the second time to use this file
-    #     if usedFiles.count(targetFile) >= repeatLimit:
-    #         df = df[df["file"] != targetFile]
-
-    #     if usedFiles.count(nonTargetFile) >= repeatLimit:
-    #         df = df[df["file"] != nonTargetFile]
-
-    #     if usedFiles.count(foilFile) >= repeatLimit:
-    #         df = df[df["file"] != foilFile]
-
-    #     # Recalculate counts
-    #     identityCounts = df["identity"].value_counts()
-    #     identityCounts = identityCounts.sort_values(ascending=False)
-
-    #     # Pick correct response at random
-    #     corrRes = np.random.choice([1, 2])
-
-    #     # Add this row to the trials df
-    #     trialDf = trialDf.append(
-    #         {
-    #             "Target": targetFile,
-    #             "Choice1": nonTargetFile if corrRes == 1 else foilFile,
-    #             "Choice2": foilFile if corrRes == 1 else nonTargetFile,
-    #             "CorrRes": corrRes,
-    #             "DiffScore": corrSim - tmpDf.iloc[-1]["sim"],
-    #         },
-    #         ignore_index=True,
-    #     )
-
-    # # Order trials by difficulty
-    # trialDf = trialDf.sort_values(by=["DiffScore"], ascending=False)
-
-    # # Add trial N
-    # trialDf["TrialN"] = range(1, len(trialDf) + 1)
-
-    # # Save as json
-    # trialDf.to_json("./laughTrials.json", orient="records")
+    # Save trials as json
+    trialDf.to_json("./laughTrials.json", orient="records")
