@@ -7,6 +7,7 @@ import re
 import pandas as pd
 import matplotlib.pyplot as plt
 import pickle
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 def get_reps(model, files, stimDir):
@@ -33,7 +34,7 @@ def get_FS_identities(files):
     return identities
 
 
-def create_sim_matrix(df):
+def create_sim_matrix(df, group):
     # Create similarity matrix
     simMatrix = np.empty((len(df), len(df)))
 
@@ -52,132 +53,115 @@ def plot_sim_matrix(simMatrix, outpath):
 if __name__ == "__main__":
     np.random.seed(2022)
 
-    # Check if df pickle exists
-    if os.path.exists("./laughDf.pkl"):
-        # Load
-        df = pd.read_pickle("./laughDf.pkl")
+    model = hub.load("https://tfhub.dev/google/trillsson5/1")
+    # Get files
+    stimDir = "./stimuli/"
+    files = audioIO.get_files(stimDir)
+
+    # Check if fs similarity matrix exists
+    if os.path.exists("./fsSimMatrix.npy"):
+        fsSimMatrix = np.load("./fsSimMatrix.npy")
+        fsIdentities = pickle.load(open("./fsIdentities.pkl", "rb"))
+    elif os.path.exists("./fsReps.npy"):
+        fsReps = np.load("./fsReps.npy")
+        fsIdentities = pickle.load(open("./fsIdentities.pkl", "rb"))
+        fsSimMatrix = cosine_similarity(fsReps)
+        np.save("./fsSimMatrix.npy", fsSimMatrix)
     else:
-        stimDir = "./stimuli/"
-        files = audioIO.get_files(stimDir)
-        model = hub.load("https://tfhub.dev/google/trillsson2/1")
-
-        # Filter FS files
         fsFiles = [file for file in files if file[:2] == "FS"]
-        # Check if reps exist
-        if os.path.exists("./fsReps.npy"):
-            reps = np.load("./fsReps.npy")
-            identities = pickle.load(open("./fsIdentities.pkl", "rb"))
-        else:
-            identities = get_FS_identities(fsFiles)
 
-            reps = get_reps(model, fsFiles, stimDir)
-            # Save reps
-            np.save("./fsReps.npy", reps)
-            # Save identity list
-            pickle.dump(identities, open("./fsIdentities.pkl", "wb"))
+        # Get identities
+        fsIdentities = [name[2:-4] for name in files]
+        fsIdentities = [
+            re.split(r"([a-zA-Z])", name)[0] for name in fsIdentities
+        ]
+        fsIdentities = ["FS" + name for name in fsIdentities]
 
-        df = pd.DataFrame(
-            data={
-                "file": fsFiles,
-                "identity": identities,
-                "rep": [rep for rep in reps],
-                "group": "FS",
-            }
-        )
+        # Get FS reps
+        fsReps = get_reps(model, fsFiles, stimDir)
 
-        # Filter Lavan identities
+        # Get similarity
+        fsSimMatrix = cosine_similarity(fsReps)
+
+        # Save reps
+        np.save("./fsReps.npy", fsReps)
+
+        # Save identity list
+        pickle.dump(fsIdentities, open("./fsIdentities.pkl", "wb"))
+
+        # save similarity matrix
+        np.save("./fsSimMatrix.npy", fsSimMatrix)
+
+    # Check if lavan similarity matrix exists
+    if os.path.exists("./lavanSimMatrix.npy"):
+        lavanSimMatrix = np.load("./lavanSimMatrix.npy")
+        lavanIdentities = pickle.load(open("./lavanIdentities.pkl", "rb"))
+    elif os.path.exists("./lavanReps.npy"):
+        lavanReps = np.load("./lavanReps.npy")
+        lavanIdentities = pickle.load(open("./lavanIdentities.pkl", "rb"))
+        lavanSimMatrix = cosine_similarity(lavanReps)
+        np.save("./lavanSimMatrix.npy", lavanSimMatrix)
+    else:
         lavanFiles = [
             file for file in files if re.match(r"^\d", file) is not None
         ]
-        # Check if reps exist
-        if os.path.exists("./lavanReps.npy"):
-            reps = np.load("./lavanReps.npy")
-            identities = pickle.load(open("./lavanIdentities.pkl", "rb"))
-        else:
-            identities = ["L" + re.split(r"_", file)[0] for file in lavanFiles]
 
-            reps = get_reps(model, lavanFiles, stimDir)
-            # Save reps
-            np.save("./lavanReps.npy", reps)
-            # Save identity list
-            pickle.dump(identities, open("./lavanIdentities.pkl", "wb"))
+        # Get identities
+        lavanIdentities = [name[:-4] for name in lavanFiles]
 
-        # Attach lavan identities to df
-        df = df.append(
-            pd.DataFrame(
-                data={
-                    "file": lavanFiles,
-                    "identity": identities,
-                    "rep": [rep for rep in reps],
-                    "group": "Lavan",
-                }
-            ),
-            ignore_index=True,
-        )
+        # Get Lavan reps
+        lavanReps = get_reps(model, lavanFiles, stimDir)
 
-        # Filter mahnob files
+        # Get similarity
+        lavanSimMatrix = cosine_similarity(lavanReps)
+
+        # Save reps
+        np.save("./lavanReps.npy", lavanReps)
+
+        # Save identity list
+        pickle.dump(lavanIdentities, open("./lavanIdentities.pkl", "wb"))
+
+        # save similarity matrix
+        np.save("./lavanSimMatrix.npy", lavanSimMatrix)
+
+    # Check if Mahnob similarity matrix exists
+    if os.path.exists("./mahnobSimMatrix.npy"):
+        mahnobSimMatrix = np.load("./mahnobSimMatrix.npy")
+        mahnobIdentities = pickle.load(open("./mahnobIdentities.pkl", "rb"))
+    elif os.path.exists("./mahnobReps.npy"):
+        mahnobReps = np.load("./mahnobReps.npy")
+        mahnobIdentities = pickle.load(open("./mahnobIdentities.pkl", "rb"))
+        mahnobSimMatrix = cosine_similarity(mahnobReps)
+        np.save("./mahnobSimMatrix.npy", mahnobSimMatrix)
+    else:
         mahnobFiles = [file for file in files if file[:3] == "sbj"]
 
-        # Check if reps exist
-        if os.path.exists("./mahnobReps.npy"):
-            reps = np.load("./mahnobReps.npy")
-            identities = pickle.load(open("./mahnobIdentities.pkl", "rb"))
-        else:
-            identities = [
-                "M" + re.search(r"(?<=sbj)\d*", file).group(0)
-                for file in mahnobFiles
-            ]
+        # Get identities
+        mahnobIdentities = [
+            "M" + re.search(r"(?<=sbj)\d*", file).group(0)
+            for file in mahnobFiles
+        ]
 
-            reps = get_reps(model, mahnobFiles, stimDir)
-            # Save reps
-            np.save("./mahnobReps.npy", reps)
-            # Save identity list
-            pickle.dump(identities, open("./mahnobIdentities.pkl", "wb"))
+        # Get Mahnob reps
+        mahnobReps = get_reps(model, mahnobFiles, stimDir)
 
-        # Attach mahnob identities to df
-        df = df.append(
-            pd.DataFrame(
-                data={
-                    "file": mahnobFiles,
-                    "identity": identities,
-                    "rep": [rep for rep in reps],
-                    "group": "Mahnob",
-                }
-            )
-        )
+        # Get similarity
+        mahnobSimMatrix = cosine_similarity(mahnobReps)
 
-        # # Filter Adrienne identities
-        # adrienneFiles = [
-        #     file for file in files if re.match(r"^(session)", file) is not None
-        # ]
-        # # Check if reps exist
-        # if os.path.exists("./adrienneReps.npy"):
-        #     reps = np.load("./adrienneReps.npy")
-        #     identities = pickle.load(open("./adrienneIdentities.pkl", "rb"))
-        # else:
-        #     identities = [
-        #         "A" + re.search(r"(?<=participant)\d*", file).group(0)
-        #         for file in adrienneFiles
-        #     ]
-        #     reps = get_reps(model, adrienneFiles, stimDir)
-        #     # Save reps
-        #     np.save("./adrienneReps.npy", reps)
-        #     # Save identity list
-        #     pickle.dump(identities, open("./adrienneIdentities.pkl", "wb"))
+        # Save reps
+        np.save("./mahnobReps.npy", mahnobReps)
 
-        # Sort df by identity
-        df = df.sort_values(by=["identity"])
+        # Save identity list
+        pickle.dump(mahnobIdentities, open("./mahnobIdentities.pkl", "wb"))
 
-        # Pickle df
-        df.to_pickle("./laughDf.pkl")
+        # save similarity matrix
+        np.save("./mahnobSimMatrix.npy", mahnobSimMatrix)
 
-    simMatrix = create_sim_matrix(df)
-    plot_sim_matrix(simMatrix, "./laughSimMatrix.png")
 
-    # Get identities and counts for each identity
-    identities = df["identity"].unique()
-    identityCounts = df["identity"].value_counts()
-    identityCounts = identityCounts.sort_values(ascending=False)
+    # # Get identities and counts for each identity
+    # identities = df["identity"].unique()
+    # identityCounts = df["identity"].value_counts()
+    # identityCounts = identityCounts.sort_values(ascending=False)
 
     # Loop through identities from high counts to low
     trialDf = pd.DataFrame(
@@ -191,87 +175,87 @@ if __name__ == "__main__":
         ]
     )
 
-    # Keep looping until all identities have less than 1 files
-    usedFiles = []
-    repeatLimit = 1
-    negFirst = True
-    while len(identityCounts[identityCounts > 1]) > 0:
-        # Pick the identity with the most files
-        identity = identityCounts.index[0]
+    # # Keep looping until all identities have less than 1 files
+    # usedFiles = []
+    # repeatLimit = 1
+    # negFirst = True
+    # while len(identityCounts[identityCounts > 1]) > 0:
+    #     # Pick the identity with the most files
+    #     identity = identityCounts.index[0]
 
-        # Get all files for this identity
-        identityFiles = df[df["identity"] == identity]["file"].unique()
+    #     # Get all files for this identity
+    #     identityFiles = df[df["identity"] == identity]["file"].unique()
 
-        # Check if this identity less than 2 files
-        if len(identityFiles) < 2:
-            continue
+    #     # Check if this identity less than 2 files
+    #     if len(identityFiles) < 2:
+    #         continue
 
-        # Pick two files at random
-        targetFile = np.random.choice(identityFiles)
-        nonTargetFile = np.random.choice(
-            identityFiles[identityFiles != targetFile]
-        )
+    #     # Pick two files at random
+    #     targetFile = np.random.choice(identityFiles)
+    #     nonTargetFile = np.random.choice(
+    #         identityFiles[identityFiles != targetFile]
+    #     )
 
-        # Get their similarity scores
-        targetRep = df[df["file"] == targetFile]["rep"].values[0]
-        nonTargetRep = df[df["file"] == nonTargetFile]["rep"].values[0]
-        corrSim = np.sum((targetRep - nonTargetRep) ** 2)
+    #     # Get their similarity scores
+    #     targetRep = df[df["file"] == targetFile]["rep"].values[0]
+    #     nonTargetRep = df[df["file"] == nonTargetFile]["rep"].values[0]
+    #     corrSim = np.sum((targetRep - nonTargetRep) ** 2)
 
-        # Get all other files that are not that identity
-        foilFiles = df[df["identity"] != identity]["file"].unique()
+    #     # Get all other files that are not that identity
+    #     foilFiles = df[df["identity"] != identity]["file"].unique()
 
-        # Calculate similarity between the target and foils
-        tmpDf = pd.DataFrame(columns=["file", "sim"])
-        for foilFile in foilFiles:
-            foilRep = df[df["file"] == foilFile]["rep"].values[0]
-            foilSim = np.sum((targetRep - foilRep) ** 2)
-            tmpDf = tmpDf.append(
-                {"file": foilFile, "sim": foilSim}, ignore_index=True
-            )
+    #     # Calculate similarity between the target and foils
+    #     tmpDf = pd.DataFrame(columns=["file", "sim"])
+    #     for foilFile in foilFiles:
+    #         foilRep = df[df["file"] == foilFile]["rep"].values[0]
+    #         foilSim = np.sum((targetRep - foilRep) ** 2)
+    #         tmpDf = tmpDf.append(
+    #             {"file": foilFile, "sim": foilSim}, ignore_index=True
+    #         )
 
-        # Pick the most (dis)similar file
-        tmpDf = tmpDf.sort_values(by=["sim"], ascending=not negFirst)
-        foilFile = tmpDf.iloc[-1]["file"]
+    #     # Pick the most (dis)similar file
+    #     tmpDf = tmpDf.sort_values(by=["sim"], ascending=not negFirst)
+    #     foilFile = tmpDf.iloc[-1]["file"]
 
-        # Add files to used files
-        usedFiles.append(targetFile)
-        usedFiles.append(nonTargetFile)
-        usedFiles.append(foilFile)
+    #     # Add files to used files
+    #     usedFiles.append(targetFile)
+    #     usedFiles.append(nonTargetFile)
+    #     usedFiles.append(foilFile)
 
-        # Remove used files from df if this is the second time to use this file
-        if usedFiles.count(targetFile) >= repeatLimit:
-            df = df[df["file"] != targetFile]
+    #     # Remove used files from df if this is the second time to use this file
+    #     if usedFiles.count(targetFile) >= repeatLimit:
+    #         df = df[df["file"] != targetFile]
 
-        if usedFiles.count(nonTargetFile) >= repeatLimit:
-            df = df[df["file"] != nonTargetFile]
+    #     if usedFiles.count(nonTargetFile) >= repeatLimit:
+    #         df = df[df["file"] != nonTargetFile]
 
-        if usedFiles.count(foilFile) >= repeatLimit:
-            df = df[df["file"] != foilFile]
+    #     if usedFiles.count(foilFile) >= repeatLimit:
+    #         df = df[df["file"] != foilFile]
 
-        # Recalculate counts
-        identityCounts = df["identity"].value_counts()
-        identityCounts = identityCounts.sort_values(ascending=False)
+    #     # Recalculate counts
+    #     identityCounts = df["identity"].value_counts()
+    #     identityCounts = identityCounts.sort_values(ascending=False)
 
-        # Pick correct response at random
-        corrRes = np.random.choice([1, 2])
+    #     # Pick correct response at random
+    #     corrRes = np.random.choice([1, 2])
 
-        # Add this row to the trials df
-        trialDf = trialDf.append(
-            {
-                "Target": targetFile,
-                "Choice1": nonTargetFile if corrRes == 1 else foilFile,
-                "Choice2": foilFile if corrRes == 1 else nonTargetFile,
-                "CorrRes": corrRes,
-                "DiffScore": corrSim - tmpDf.iloc[-1]["sim"],
-            },
-            ignore_index=True,
-        )
+    #     # Add this row to the trials df
+    #     trialDf = trialDf.append(
+    #         {
+    #             "Target": targetFile,
+    #             "Choice1": nonTargetFile if corrRes == 1 else foilFile,
+    #             "Choice2": foilFile if corrRes == 1 else nonTargetFile,
+    #             "CorrRes": corrRes,
+    #             "DiffScore": corrSim - tmpDf.iloc[-1]["sim"],
+    #         },
+    #         ignore_index=True,
+    #     )
 
-    # Order trials by difficulty
-    trialDf = trialDf.sort_values(by=["DiffScore"], ascending=False)
+    # # Order trials by difficulty
+    # trialDf = trialDf.sort_values(by=["DiffScore"], ascending=False)
 
-    # Add trial N
-    trialDf["TrialN"] = range(1, len(trialDf) + 1)
+    # # Add trial N
+    # trialDf["TrialN"] = range(1, len(trialDf) + 1)
 
-    # Save as json
-    trialDf.to_json("./laughTrials.json", orient="records")
+    # # Save as json
+    # trialDf.to_json("./laughTrials.json", orient="records")
