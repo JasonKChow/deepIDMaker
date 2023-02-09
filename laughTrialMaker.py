@@ -245,5 +245,8 @@ if __name__ == "__main__":
     # Sort trials based on difficulty
     trialDf = trialDf.sort_values("DiffScore", ascending=False)
 
+    # Add trialN column
+    trialDf["TrialN"] = np.arange(trialDf.shape[0]) + 1
+
     # Save trials as json
     trialDf.to_json("./laughTrials.json", orient="records")
