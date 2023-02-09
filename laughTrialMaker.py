@@ -7,7 +7,7 @@ import re
 import pandas as pd
 import matplotlib.pyplot as plt
 import pickle
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import euclidean_distances
 
 
 def get_reps(model, files, stimDir):
@@ -37,7 +37,6 @@ def create_trials(identities, simMatrix):
     # Get identity counts of fs identities
     identityCounts = identities["identity"].value_counts()
 
-    usedIndices = []
     # Loop until no identities have more than 1 file left
     while len(identityCounts[identityCounts > 1]) > 0:
         # Pick the identity with the most files
@@ -116,7 +115,7 @@ if __name__ == "__main__":
     elif os.path.exists("./fsReps.npy"):
         fsReps = np.load("./fsReps.npy")
         fsIdentities = pickle.load(open("./fsIdentities.pkl", "rb"))
-        fsSimMatrix = cosine_similarity(fsReps)
+        fsSimMatrix = euclidean_distances(fsReps)
         del fsReps
         np.save("./fsSimMatrix.npy", fsSimMatrix)
     else:
@@ -138,7 +137,7 @@ if __name__ == "__main__":
         fsReps = get_reps(model, fsFiles, stimDir)
 
         # Get similarity
-        fsSimMatrix = cosine_similarity(fsReps)
+        fsSimMatrix = euclidean_distances(fsReps)
 
         # Save reps
         np.save("./fsReps.npy", fsReps)
@@ -157,7 +156,7 @@ if __name__ == "__main__":
     elif os.path.exists("./lavanReps.npy"):
         lavanReps = np.load("./lavanReps.npy")
         lavanIdentities = pickle.load(open("./lavanIdentities.pkl", "rb"))
-        lavanSimMatrix = cosine_similarity(lavanReps)
+        lavanSimMatrix = euclidean_distances(lavanReps)
         del lavanReps
         np.save("./lavanSimMatrix.npy", lavanSimMatrix)
     else:
@@ -179,7 +178,7 @@ if __name__ == "__main__":
         lavanReps = get_reps(model, lavanFiles, stimDir)
 
         # Get similarity
-        lavanSimMatrix = cosine_similarity(lavanReps)
+        lavanSimMatrix = euclidean_distances(lavanReps)
 
         # Save reps
         np.save("./lavanReps.npy", lavanReps)
@@ -198,7 +197,7 @@ if __name__ == "__main__":
     elif os.path.exists("./mahnobReps.npy"):
         mahnobReps = np.load("./mahnobReps.npy")
         mahnobIdentities = pickle.load(open("./mahnobIdentities.pkl", "rb"))
-        mahnobSimMatrix = cosine_similarity(mahnobReps)
+        mahnobSimMatrix = euclidean_distances(mahnobReps)
         del mahnobReps
         np.save("./mahnobSimMatrix.npy", mahnobSimMatrix)
     else:
@@ -219,7 +218,7 @@ if __name__ == "__main__":
         mahnobReps = get_reps(model, mahnobFiles, stimDir)
 
         # Get similarity
-        mahnobSimMatrix = cosine_similarity(mahnobReps)
+        mahnobSimMatrix = euclidean_distances(mahnobReps)
 
         # Save reps
         np.save("./mahnobReps.npy", mahnobReps)
